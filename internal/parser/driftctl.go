@@ -6,46 +6,52 @@ import (
 	"os"
 )
 
-// DriftResource represents a single drifted resource from driftctl output.
-type DriftResource struct {
-	ResourceID   string            `json:"id"`
-	ResourceType string            `json:"type"`
-	Source       string            `json:"source"`
-	Differences  []Difference      `json:"differences,omitempty"`
-	Attrs        map[string]string `json:"attrs,omitempty"`
+// ResourceStatus describes whether a resource is changed, missing, or unmanaged.
+type ResourceStatus string
+
+const (
+	StatusChanged   ResourceStatus = "changed"
+	StatusMissing   ResourceStatus = "missing"
+	StatusUnmanaged ResourceStatus = "unmanaged"
+)
+
+// Resource represents a single cloud resource identified in the drift report.
+type Resource struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
 }
 
-// Difference captures a single attribute-level drift.
+// Difference captures a single drifted resource and its status.
 type Difference struct {
-	Attribute string `json:"attribute"`
-	Wanted    string `json:"wanted"`
-	Found     string `json:"found"`
+	Res    Resource       `json:"res"`
+	Status ResourceStatus `json:"status"`
 }
 
-// DriftReport is the top-level structure parsed from a driftctl JSON output file.
+// Summary holds high-level statistics from a drift scan.
+type Summary struct {
+	TotalResources   int `json:"total_resources"`
+	DriftedResources int `json:"drifted_resources"`
+	UndriftedCount   int `json:"undrifted_count"`
+}
+
+// DriftReport is the top-level structure of a driftctl JSON report.
 type DriftReport struct {
-	Summary struct {
-		TotalResources  int `json:"total_resources"`
-		DriftedCount    int `json:"total_drifted"`
-		UnmanagedCount  int `json:"total_unmanaged"`
-		DeletedCount    int `json:"total_deleted"`
-	} `json:"summary"`
-	Drifted   []DriftResource `json:"differences"`
-	Unmanaged []DriftResource `json:"unmanaged"`
-	Deleted   []DriftResource `json:"deleted"`
+	Summary     Summary      `json:"summary"`
+	Differences []Difference `json:"differences"`
 }
 
-// ParseFile reads and parses a driftctl JSON report from the given file path.
+// ParseFile reads a driftctl JSON report from the given file path and returns
+// a parsed DriftReport or an error.
 func ParseFile(path string) (*DriftReport, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("parser: opening file %q: %w", path, err)
+		return nil, fmt.Errorf("reading report file %q: %w", path, err)
 	}
-	defer f.Close()
 
 	var report DriftReport
-	if err := json.NewDecoder(f).Decode(&report); err != nil {
-		return nil, fmt.Errorf("parser: decoding JSON from %q: %w", path, err)
+	if err := json.Unmarshal(data, &report); err != nil {
+		return nil, fmt.Errorf("parsing report JSON: %w", err)
 	}
+
 	return &report, nil
 }
