@@ -70,3 +70,35 @@ func TestExportUnsupportedFormat(t *testing.T) {
 		t.Fatal("expected error for unsupported format, got nil")
 	}
 }
+
+func TestExportEmptyReport(t *testing.T) {
+	empty := &parser.DriftReport{}
+
+	t.Run("JSON", func(t *testing.T) {
+		var buf bytes.Buffer
+		e := exporter.New(exporter.FormatJSON, &buf)
+		if err := e.Export(empty); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var got parser.DriftReport
+		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+			t.Fatalf("output is not valid JSON: %v", err)
+		}
+		if len(got.Differences) != 0 {
+			t.Errorf("expected 0 differences, got %d", len(got.Differences))
+		}
+	})
+
+	t.Run("CSV", func(t *testing.T) {
+		var buf bytes.Buffer
+		e := exporter.New(exporter.FormatCSV, &buf)
+		if err := e.Export(empty); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+		// Only the header row should be present
+		if len(lines) != 1 {
+			t.Errorf("expected 1 line (header only), got %d: %v", len(lines), lines)
+		}
+	})
+}
