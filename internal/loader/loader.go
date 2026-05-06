@@ -19,6 +19,11 @@ type Result struct {
 	Errors map[string]error
 }
 
+// HasErrors returns true if any files failed to load or parse.
+func (r *Result) HasErrors() bool {
+	return len(r.Errors) > 0
+}
+
 // LoadFile loads and parses a single driftctl JSON report from the given path.
 func LoadFile(path string) (*resource.DriftctlScanReport, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
